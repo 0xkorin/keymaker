@@ -1,0 +1,13 @@
+[package]
+name = "keymaker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex = "0.4"
+hmac = "0.12"
+k256 = "0.13"
+once_cell = "1.17"
+pbkdf2 = "0.12"
+ripemd = "0.1"
+sha2 = "0.10"
