@@ -11,6 +11,28 @@ impl Bits for &u8 {
 	}
 }
 
+pub struct BitsN<const N: usize>(usize);
+
+impl<const N: usize> Bits for BitsN<N> {
+	const SIZE: usize = N;
+
+	fn bits(self) -> usize {
+		self.0
+	}
+}
+
+impl<const N: usize> TryFrom<usize> for BitsN<N> {
+	type Error = ();
+
+	fn try_from(v: usize) -> Result<Self, Self::Error> {
+		if v < 1 << N {
+			Ok(Self(v))
+		} else {
+			Err(())
+		}
+	}
+}
+
 pub struct BitIter<I, const N: usize> {
 	iter: I,
 	read: usize,

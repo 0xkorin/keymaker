@@ -1,5 +1,5 @@
 use crate::bip32::ExtKey;
-use crate::util::IterExt;
+use crate::util::{BitsN, IterExt};
 use k256::SecretKey;
 use once_cell::sync::Lazy;
 use pbkdf2::pbkdf2_hmac;
@@ -8,6 +8,22 @@ use std::fmt;
 
 static RAW_WORD_LIST: &'static str = include_str!("../bip39_english.txt");
 static WORD_LIST: Lazy<Vec<&'static str>> = Lazy::new(|| RAW_WORD_LIST.lines().collect());
+
+pub enum MnemonicError {
+	InvalidWord,
+	IncorrectLength,
+	ChecksumMismatch,
+}
+
+impl fmt::Debug for MnemonicError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::InvalidWord => write!(f, "invalid word"),
+			Self::IncorrectLength => write!(f, "incorrect length"),
+			Self::ChecksumMismatch => write!(f, "checksum mismatch"),
+		}
+	}
+}
 
 pub struct Mnemonic(Vec<&'static str>);
 
@@ -25,6 +41,34 @@ impl Mnemonic {
 			.take(entropy.len() * 3 / 4)
 			.collect();
 		Mnemonic(mnemonic)
+	}
+
+	pub fn from_phrase(phrase: &str) -> Result<Mnemonic, MnemonicError> {
+		let indices = phrase
+			.trim()
+			.split_whitespace()
+			.map(|w| WORD_LIST.binary_search(&w))
+			.collect::<Result<Vec<_>, _>>()
+			.map_err(|_| MnemonicError::InvalidWord)?;
+
+		let raw: Vec<_> = indices
+			.iter()
+			.map(|&i| BitsN::<11>::try_from(i).unwrap())
+			.bits::<8>()
+			.map(|v| v as u8)
+			.collect();
+		if raw.len() != 33 {
+			return Err(MnemonicError::IncorrectLength);
+		}
+
+		let mut hasher = Sha256::new();
+		hasher.update(&raw[..32]);
+		let checksum = hasher.finalize();
+		if raw[32] != checksum[0] {
+			return Err(MnemonicError::ChecksumMismatch);
+		}
+
+		Ok(Self(indices.into_iter().map(|i| WORD_LIST[i]).collect()))
 	}
 
 	pub fn seed(&self, passphrase: &str) -> Seed {
@@ -231,6 +275,10 @@ mod tests {
 			assert_eq!(format!("{mnemonic}"), entry[1]);
 			let seed = mnemonic.seed("TREZOR");
 			assert_eq!(format!("{seed}"), entry[2]);
+			if mnemonic.0.len() == 24 {
+				let seed = Mnemonic::from_phrase(entry[1]).unwrap().seed("TREZOR");
+				assert_eq!(format!("{seed}"), entry[2]);
+			}
 			let root_key = seed.root_key().unwrap();
 			assert_eq!(format!("{root_key}"), entry[3]);
 		}
