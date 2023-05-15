@@ -7,6 +7,7 @@ mod base58;
 mod bip32;
 mod bip39;
 mod bip85;
+mod eth;
 mod util;
 
 fn main() {
