@@ -21,7 +21,7 @@ impl fmt::Display for Address {
 		let hash = hex::encode(hasher.finalize());
 		f.write_str("0x")?;
 		for (mut c, h) in buf.chars().zip(hash.chars()) {
-			if h as u8 > 55 {
+			if h > '7' {
 				c = c.to_ascii_uppercase();
 			}
 			f.write_char(c)?;
@@ -75,7 +75,7 @@ mod tests {
 			"001d3f1ef827552ae1114027bd3ecf1f086ba0f9"
 		);
 		assert_eq!(
-			format!("{addr}"),
+			addr.to_string(),
 			"0x001d3F1ef827552Ae1114027BD3ECF1f086bA0F9"
 		);
 	}

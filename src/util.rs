@@ -1,3 +1,5 @@
+use std::iter::Peekable;
+
 pub trait Bits {
 	const SIZE: usize;
 	fn bits(self) -> usize;
@@ -58,6 +60,32 @@ where
 	}
 }
 
+pub struct Implode<I: Iterator> {
+	iter: Peekable<I>,
+	separator: I::Item,
+	toggle: bool,
+}
+
+impl<I> Iterator for Implode<I>
+where
+	I: Iterator,
+	I::Item: Clone,
+{
+	type Item = I::Item;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.iter.peek().is_none() {
+			return None;
+		}
+		self.toggle = !self.toggle;
+		if self.toggle {
+			Some(self.separator.clone())
+		} else {
+			self.iter.next()
+		}
+	}
+}
+
 pub trait IterExt: Iterator + Sized {
 	fn bits<const N: usize>(self) -> BitIter<Self, N>
 	where
@@ -78,6 +106,17 @@ pub trait IterExt: Iterator + Sized {
 			f(&mut init, item);
 		}
 		init
+	}
+
+	fn implode(self, separator: Self::Item) -> Implode<Self>
+	where
+		Self::Item: Clone,
+	{
+		Implode {
+			iter: self.peekable(),
+			separator,
+			toggle: true,
+		}
 	}
 }
 

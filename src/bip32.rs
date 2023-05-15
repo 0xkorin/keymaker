@@ -112,7 +112,7 @@ impl ExtKey<SecretKey> {
 
 impl<K: Key> fmt::Display for ExtKey<K> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", base58::encode_check(self.serialize()))
+		f.write_str(&base58::encode_check(self.serialize()))
 	}
 }
 
@@ -204,8 +204,8 @@ mod tests {
 	use super::*;
 
 	fn cmp(key: &ExtKey<SecretKey>, pk: &str, sk: &str) {
-		assert_eq!(format!("{key}"), sk);
-		assert_eq!(format!("{}", key.public_key()), pk);
+		assert_eq!(key.to_string(), sk);
+		assert_eq!(key.public_key().to_string(), pk);
 	}
 
 	#[test]
@@ -239,7 +239,7 @@ mod tests {
 			cmp(&key, pk, sk);
 			for (i, pk, sk) in path {
 				if let Some(p) = key.public_key().derive(i) {
-					assert_eq!(format!("{p}"), pk);
+					assert_eq!(p.to_string(), pk);
 				}
 
 				key = key.derive(i).unwrap();

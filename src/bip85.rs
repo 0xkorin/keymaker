@@ -60,6 +60,6 @@ mod tests {
 	#[test]
 	fn mnemonic() {
 		let mnemonic = key().child_mnemonic(0).unwrap();
-		assert_eq!(format!("{}", mnemonic), "puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano");
+		assert_eq!(mnemonic.to_string(), "puppy ocean match cereal symbol another shed magic wrap hammer bulb intact gadget divorce twin tonight reason outdoor destroy simple truth cigar social volcano");
 	}
 }

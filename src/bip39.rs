@@ -9,6 +9,7 @@ use std::fmt;
 static RAW_WORD_LIST: &'static str = include_str!("../bip39_english.txt");
 static WORD_LIST: Lazy<Vec<&'static str>> = Lazy::new(|| RAW_WORD_LIST.lines().collect());
 
+#[derive(PartialEq)]
 pub enum MnemonicError {
 	InvalidWord,
 	IncorrectLength,
@@ -18,9 +19,9 @@ pub enum MnemonicError {
 impl fmt::Debug for MnemonicError {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::InvalidWord => write!(f, "invalid word"),
-			Self::IncorrectLength => write!(f, "incorrect length"),
-			Self::ChecksumMismatch => write!(f, "checksum mismatch"),
+			Self::InvalidWord => f.write_str("invalid word"),
+			Self::IncorrectLength => f.write_str("incorrect length"),
+			Self::ChecksumMismatch => f.write_str("checksum mismatch"),
 		}
 	}
 }
@@ -74,8 +75,8 @@ impl Mnemonic {
 	pub fn seed(&self, passphrase: &str) -> Seed {
 		let mut seed = [0; 64];
 		pbkdf2_hmac::<Sha512>(
-			format!("{}", self).as_bytes(),
-			format!("mnemonic{}", passphrase).as_bytes(),
+			self.to_string().as_bytes(),
+			format!("mnemonic{passphrase}").as_bytes(),
 			2048,
 			&mut seed,
 		);
@@ -85,12 +86,8 @@ impl Mnemonic {
 
 impl fmt::Display for Mnemonic {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let mut it = self.0.iter();
-		if let Some(w) = it.next() {
-			write!(f, "{w}")?;
-		}
-		while let Some(w) = it.next() {
-			write!(f, " {w}")?;
+		for &part in self.0.iter().implode(&" ") {
+			f.write_str(part)?;
 		}
 		Ok(())
 	}
@@ -112,7 +109,7 @@ impl AsRef<[u8]> for Seed {
 
 impl fmt::Display for Seed {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", hex::encode(self.0))
+		f.write_str(&hex::encode(self.0))
 	}
 }
 
@@ -272,15 +269,29 @@ mod tests {
 		for entry in data {
 			let entropy = hex::decode(entry[0]).unwrap();
 			let mnemonic = Mnemonic::from_entropy(entropy);
-			assert_eq!(format!("{mnemonic}"), entry[1]);
+			assert_eq!(mnemonic.to_string(), entry[1]);
 			let seed = mnemonic.seed("TREZOR");
-			assert_eq!(format!("{seed}"), entry[2]);
+			assert_eq!(seed.to_string(), entry[2]);
 			if mnemonic.0.len() == 24 {
 				let seed = Mnemonic::from_phrase(entry[1]).unwrap().seed("TREZOR");
-				assert_eq!(format!("{seed}"), entry[2]);
+				assert_eq!(seed.to_string(), entry[2]);
 			}
 			let root_key = seed.root_key().unwrap();
-			assert_eq!(format!("{root_key}"), entry[3]);
+			assert_eq!(root_key.to_string(), entry[3]);
+		}
+	}
+
+	#[test]
+	fn decode() {
+		use MnemonicError::*;
+		let data = [
+			("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art", Ok(())),
+			("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon", Err(IncorrectLength)), 
+			("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon", Err(ChecksumMismatch)), 
+			("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon lol", Err(InvalidWord))
+		];
+		for (phrase, res) in data {
+			assert_eq!(Mnemonic::from_phrase(phrase).map(|_| ()), res)
 		}
 	}
 }
