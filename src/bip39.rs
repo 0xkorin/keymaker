@@ -26,22 +26,11 @@ impl fmt::Debug for MnemonicError {
 	}
 }
 
-pub struct Mnemonic(Vec<&'static str>);
+pub struct Mnemonic(Vec<u8>);
 
 impl Mnemonic {
 	pub fn from_entropy<T: AsRef<[u8]>>(entropy: T) -> Mnemonic {
-		let entropy = entropy.as_ref();
-		let mut hasher = Sha256::new();
-		hasher.update(entropy);
-		let checksum = hasher.finalize();
-		let mnemonic = entropy
-			.iter()
-			.chain(checksum.iter())
-			.bits::<11>()
-			.map(|w| WORD_LIST[w])
-			.take(entropy.len() * 3 / 4)
-			.collect();
-		Mnemonic(mnemonic)
+		Mnemonic(entropy.as_ref().to_vec())
 	}
 
 	pub fn from_phrase(phrase: &str) -> Result<Mnemonic, MnemonicError> {
@@ -52,13 +41,14 @@ impl Mnemonic {
 			.collect::<Result<Vec<_>, _>>()
 			.map_err(|_| MnemonicError::InvalidWord)?;
 
-		let raw: Vec<_> = indices
+		let mut raw: Vec<_> = indices
 			.iter()
 			.map(|&i| BitsN::<11>::try_from(i).unwrap())
-			.bits::<8>()
+			.bytes()
 			.map(|v| v as u8)
 			.collect();
 		if raw.len() != 33 {
+			// TODO: support other lengths
 			return Err(MnemonicError::IncorrectLength);
 		}
 
@@ -68,8 +58,9 @@ impl Mnemonic {
 		if raw[32] != checksum[0] {
 			return Err(MnemonicError::ChecksumMismatch);
 		}
+		raw.pop();
 
-		Ok(Self(indices.into_iter().map(|i| WORD_LIST[i]).collect()))
+		Ok(Self(raw))
 	}
 
 	pub fn seed(&self, passphrase: &str) -> Seed {
@@ -86,7 +77,18 @@ impl Mnemonic {
 
 impl fmt::Display for Mnemonic {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		for &part in self.0.iter().implode(&" ") {
+		let mut hasher = Sha256::new();
+		hasher.update(&self.0);
+		let checksum = hasher.finalize();
+		for part in self
+			.0
+			.iter()
+			.chain(checksum.iter())
+			.bits::<11>()
+			.map(|w| WORD_LIST[w])
+			.take(self.0.len() * 3 / 4)
+			.implode(&" ")
+		{
 			f.write_str(part)?;
 		}
 		Ok(())
@@ -272,7 +274,7 @@ mod tests {
 			assert_eq!(mnemonic.to_string(), entry[1]);
 			let seed = mnemonic.seed("TREZOR");
 			assert_eq!(seed.to_string(), entry[2]);
-			if mnemonic.0.len() == 24 {
+			if mnemonic.0.len() == 32 {
 				let seed = Mnemonic::from_phrase(entry[1]).unwrap().seed("TREZOR");
 				assert_eq!(seed.to_string(), entry[2]);
 			}

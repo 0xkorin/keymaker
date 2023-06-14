@@ -98,6 +98,13 @@ pub trait IterExt: Iterator + Sized {
 		}
 	}
 
+	fn bytes(self) -> BitIter<Self, 8>
+	where
+		Self::Item: Bits,
+	{
+		self.bits()
+	}
+
 	fn fold_mut<A, F>(self, mut init: A, mut f: F) -> A
 	where
 		F: FnMut(&mut A, Self::Item),
