@@ -101,6 +101,18 @@ fn dice() -> Mnemonic {
 		stdin().read_line(&mut input).unwrap();
 	}
 
+	#[cfg(feature = "salt")]
+	{
+		print!("Enter salt: ");
+		stdout().flush().unwrap();
+		input.clear();
+		stdin().read_line(&mut input).unwrap();
+		let salt = input.trim_end();
+		if !salt.is_empty() {
+			hasher.update(salt.as_bytes());
+		}
+	}
+
 	let res = hasher.finalize();
 	Mnemonic::from_entropy(res)
 }
