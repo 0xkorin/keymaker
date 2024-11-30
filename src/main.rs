@@ -74,6 +74,7 @@ fn dice() -> Mnemonic {
 
 	let mut hasher = Sha256::new();
 	let mut warn = false;
+	let mut len = 0;
 	for mut c in input.trim_end().chars().map(|v| v as u8) {
 		if c < 49 || c > 54 {
 			warn = true;
@@ -83,6 +84,7 @@ fn dice() -> Mnemonic {
 			c = 48; // map 6 to 0
 		}
 		hasher.update(&[c]);
+		len += 1;
 	}
 
 	if warn {
@@ -93,7 +95,7 @@ fn dice() -> Mnemonic {
 		stdin().read_line(&mut input).unwrap();
 	}
 
-	if input.trim_end().len() < 128 {
+	if len < 128 {
 		println!();
 		println!("!!!! WARNING: insufficient entropy !!!!");
 		println!("Press ENTER to continue anyway");
@@ -103,7 +105,7 @@ fn dice() -> Mnemonic {
 
 	#[cfg(feature = "salt")]
 	{
-		print!("Enter salt: ");
+		print!("Enter optional salt: ");
 		stdout().flush().unwrap();
 		input.clear();
 		stdin().read_line(&mut input).unwrap();
